@@ -8,10 +8,10 @@ import (
 
 type Mysql struct { }
 
-func (m Mysql) Prepare(i int) {
+func (m *Mysql) Prepare(i int) {
 	fmt.Printf("Called mysql.prepare with i = %d\n", i)
 }
 
-func (m Mysql) Select() {
+func (m *Mysql) Select() {
 	//db, err := sql.Open("mysql", "user:password@/dbname")
 }
