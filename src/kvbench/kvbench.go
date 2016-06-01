@@ -34,11 +34,14 @@ func main() {
 	flag.Parse()
 
 	var tester DatastoreTester
-
-	if *dbType == "postgres" {
+	switch *dbType {
+	case "postgres":
 		var p Postgresql
 		tester = DatastoreTester(&p)
-	} else {
+	case "mysql":
+		var m Mysql
+		tester = DatastoreTester(&m)
+	default:
 		panic("Unsupported db type")
 	}
 
