@@ -18,7 +18,7 @@ const (
 )
 
 type DatastoreTester interface {
-	Init()
+	Init(host string, port int, user string, password string)
 	Prepare(sz int, t chan time.Duration)
 	SelectByPkRandom(start int, end int, t chan time.Duration)
 	UpdateByPkRandom(start int, end int, t chan time.Duration)
@@ -28,6 +28,10 @@ var numConnections = flag.Int("num-connections", 0, "Number of connections to DB
 var dbType = flag.String("db", "postgres", "Database type")
 var testType = flag.String("test", "", "Test type: prepare, select-by-pk, etc.")
 var testSize = flag.Int("num-operations", 0, "Number of queries/updates/etc. per conn")
+var host = flag.String("host", "192.168.42.223", "Target host")
+var port = flag.Int("port", 0, "Port of db")
+var user = flag.String("user", "u1", "Username if required")
+var password = flag.String("password", "pw1pw1pw1", "Password if required")
 
 
 func main() {
@@ -41,11 +45,14 @@ func main() {
 	case "mysql":
 		var m Mysql
 		tester = DatastoreTester(&m)
+	case "memcache":
+		var m Memcache
+		tester = DatastoreTester(&m)
 	default:
 		panic("Unsupported db type")
 	}
 
-	tester.Init()
+	tester.Init(*host, *port, *user, *password)
 
 	for i := 0; i < *numConnections; i++ {
 		var dur time.Duration

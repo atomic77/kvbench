@@ -26,7 +26,7 @@ type Mysql struct {
 	Rdbms
 }
 
-func (m *Mysql) Init() {
+func (m *Mysql) Init(host string, port int, user string, password string) {
 
 	m.createTable = "CREATE TABLE tab (k INT, v TEXT, PRIMARY KEY (k)) ENGINE = InnoDB"
 	m.dropTable = "DROP TABLE IF EXISTS tab"
@@ -42,15 +42,14 @@ func (m *Mysql) Init() {
 	 */
 
 	_connStr := "%v:%v@tcp(%v:%v)/%v"
-	connStr := fmt.Sprintf(_connStr, "root", "pw1pw1pw1", "192.168.42.223",
-		"3306", "test")
+	connStr := fmt.Sprintf(_connStr, user, password, host, port, "test")
 	db, err := sql.Open("mysql", connStr)
 	m.db = db
 	checkErr(err, "Failed to connect to mysql")
 }
 
 
-func (p *Postgresql) Init() {
+func (p *Postgresql) Init(host string, port int, user string, password string) {
 
 	p.createTable = "CREATE TABLE tab (k INT, v TEXT, PRIMARY KEY (k))"
 	p.dropTable = "DROP TABLE IF EXISTS tab"
@@ -59,8 +58,8 @@ func (p *Postgresql) Init() {
 	p.selectByPk = "SELECT k, v FROM tab WHERE k = $1"
 	p.updateByPk = "UPDATE tab SET v = $1 WHERE k = $2"
 
-	_connStr := "user=%v dbname=%v host=%v port=%v sslmode=disable"
-	connStr := fmt.Sprintf(_connStr, "postgres", "postgres", "192.168.42.223", "5432")
+	_connStr := "user=%v password=%v dbname=%v host=%v port=%v sslmode=disable"
+	connStr := fmt.Sprintf(_connStr, user, password, "postgres", host, port)
 	db, err := sql.Open("postgres", connStr)
 	p.db = db
 	checkErr(err, "Failed to connect to pgsql")
