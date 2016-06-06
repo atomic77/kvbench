@@ -8,30 +8,24 @@ import (
 	"flag"
 )
 
-type TestType int
-const (
-	Prepare TestType = iota
-	Read
-	Insert
-	Update
-	ReadWrite
-)
-
 type DatastoreTester interface {
 	Init(host string, port int, user string, password string)
-	Prepare(sz int, t chan time.Duration)
+	InsertByPkRandom(start int, end int, t chan time.Duration)
 	SelectByPkRandom(start int, end int, t chan time.Duration)
 	UpdateByPkRandom(start int, end int, t chan time.Duration)
+	DeleteByPkRandom(start int, end int, t chan time.Duration)
+	CreateTables()
 }
 
 var numConnections = flag.Int("num-connections", 0, "Number of connections to DB")
 var dbType = flag.String("db", "postgres", "Database type")
 var testType = flag.String("test", "", "Test type: prepare, select-by-pk, etc.")
-var testSize = flag.Int("num-operations", 0, "Number of queries/updates/etc. per conn")
+var numOpsPerConn = flag.Int("num-operations", 0, "Number of queries/updates/etc. per conn")
 var host = flag.String("host", "192.168.42.223", "Target host")
 var port = flag.Int("port", 0, "Port of db")
 var user = flag.String("user", "u1", "Username if required")
 var password = flag.String("password", "pw1pw1pw1", "Password if required")
+var label = flag.String("label", "test", "Label to add to test result output")
 
 
 func main() {
@@ -52,25 +46,42 @@ func main() {
 		panic("Unsupported db type")
 	}
 
+	runTime := time.Now().Unix()
 	tester.Init(*host, *port, *user, *password)
+	if *testType == "insert-by-pk" {
+		tester.CreateTables()
+	}
+
+
+	// A bit confusing : the first make creates a slice of channels of length *numCOnn
+	// Then each individual make is there to create a new channel
+	t := make([]chan time.Duration, *numConnections)
+	for i := 0; i < *numConnections; i++ {
+		t[i] = make(chan time.Duration)
+	}
 
 	for i := 0; i < *numConnections; i++ {
-		var dur time.Duration
-		t := make(chan time.Duration)
-
+		start := *numOpsPerConn * i
 		switch *testType {
-		case "prepare":
-			go tester.Prepare(*testSize, t)
+		case "insert-by-pk":
+			go tester.InsertByPkRandom(start, start + *numOpsPerConn, t[i])
 		case "select-by-pk":
-			go tester.SelectByPkRandom(1, *testSize, t)
+			go tester.SelectByPkRandom(start, start + *numOpsPerConn, t[i])
 		case "update-by-pk":
-			go tester.UpdateByPkRandom(1, *testSize, t)
+			go tester.UpdateByPkRandom(start, start + *numOpsPerConn, t[i])
+		case "delete-by-pk":
+			go tester.DeleteByPkRandom(start, start + *numOpsPerConn, t[i])
 
 		}
-		dur = <-t
-		rate := float64(*testSize) / dur.Seconds()
-		fmt.Printf("Routine called %v requests, %.2f sec, %.2f / s \n",
-			*testSize, dur.Seconds(), rate)
+	}
+
+	for i := 0; i< *numConnections; i++ {
+		dur := <-t[i]
+		rate := float64(*numOpsPerConn) / dur.Seconds()
+		// Final output:
+		// Runtime, DB, Test, ConnNum, Reqs, secs, rate
+		fmt.Printf("%v,%v,%v,%v,%v,%v,%.2f,%.2f\n",
+			runTime, *label, *dbType, *testType, i, *numOpsPerConn, dur.Seconds(), rate)
 	}
 }
 

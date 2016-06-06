@@ -23,14 +23,17 @@ func (m *Memcache) Init(host string, port int, user string, password string) {
 	m.valStr = "1234567890ABCDEF"
 }
 
-func (m *Memcache) Prepare(sz int, t chan time.Duration) {
+func (m *Memcache) CreateTables() {
+	err := m.mc.DeleteAll()
+	checkErr(err, "Error purging memcache for prepare")
+
+}
+func (m *Memcache) InsertByPkRandom(start int, end int, t chan time.Duration) {
 
 	// There are no 'tables' to set up in memcached so just pre-write the keys
 	var err error
-	err = m.mc.DeleteAll()
-	checkErr(err, "Error purging memcache for prepare")
 	tm_s := time.Now()
-	for i := 1; i<=sz ; i++  {
+	for i := start; i< end ; i++  {
 		k := strconv.Itoa(i)
 		err = m.mc.Add(&memcache.Item{Key: k, Value: []byte(m.valStr)})
 		checkErr(err, "Failed to add data to memcache")
@@ -78,3 +81,20 @@ func (m *Memcache) UpdateByPkRandom(start int, end int, t chan time.Duration) {
 	t <- tm_e.Sub(tm_s)
 }
 
+func (m *Memcache) DeleteByPkRandom(start int, end int, t chan time.Duration) {
+
+	l := end - start
+	rnd := InitSampleSet(end - start, start)
+
+	tm_s := time.Now()
+	m.valStr = "00012312301230"
+
+	for i := 0; i<l ; i++  {
+		k := strconv.Itoa(int(rnd[i]))
+		err := m.mc.Delete(k)
+		checkErr(err, "Failed to delete data to memcache")
+	}
+
+	tm_e := time.Now()
+	t <- tm_e.Sub(tm_s)
+}

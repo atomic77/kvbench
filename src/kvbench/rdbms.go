@@ -16,6 +16,8 @@ type Rdbms struct {
 	valStr string
 	selectByPk string
 	updateByPk string
+	deleteByPk string
+	commitInterval int
 }
 
 type Postgresql struct {
@@ -34,6 +36,8 @@ func (m *Mysql) Init(host string, port int, user string, password string) {
 	m.valStr = "1234567890ABCDEF"
 	m.selectByPk = "SELECT k, v FROM tab WHERE k = ?"
 	m.updateByPk = "UPDATE tab SET v = ? WHERE k = ?"
+	m.deleteByPk = "DELETE FROM tab WHERE k = ?"
+	m.commitInterval = 100
 
 	/*
 	For mysql, the DSN is formatted as:
@@ -57,29 +61,50 @@ func (p *Postgresql) Init(host string, port int, user string, password string) {
 	p.valStr = "1234567890ABCDEF"
 	p.selectByPk = "SELECT k, v FROM tab WHERE k = $1"
 	p.updateByPk = "UPDATE tab SET v = $1 WHERE k = $2"
+	p.deleteByPk = "DELETE FROM tab WHERE k = $1"
+	p.commitInterval = 100
 
 	_connStr := "user=%v password=%v dbname=%v host=%v port=%v sslmode=disable"
 	connStr := fmt.Sprintf(_connStr, user, password, "postgres", host, port)
 	db, err := sql.Open("postgres", connStr)
 	p.db = db
 	checkErr(err, "Failed to connect to pgsql")
+
 }
 
-
-func (r *Rdbms) Prepare(sz int, t chan time.Duration) {
+func (m *Mysql) CreateTables() {
 	var err error
+
+	_, err = m.db.Exec("CREATE SCHEMA IF NOT EXISTS test")
+	checkErr(err, "Failed to create test schema")
+
+	_, err = m.db.Exec(m.dropTable)
+	checkErr(err, "Failed to create table")
+
+	_, err = m.db.Exec(m.createTable)
+	checkErr(err, "Failed to create table")
+}
+
+func (p *Postgresql) CreateTables() {
+	var err error
+	_, err = p.db.Exec(p.dropTable)
+	checkErr(err, "Failed to create table")
+
+	_, err = p.db.Exec(p.createTable)
+	checkErr(err, "Failed to create table")
+}
+
+func (r *Rdbms) InsertByPkRandom(start int, end int, t chan time.Duration) {
 	tm_s := time.Now()
-	_, err = r.db.Exec(r.dropTable)
-	checkErr(err, "Failed to create table")
 
-	_, err = r.db.Exec(r.createTable)
-	checkErr(err, "Failed to create table")
+	s, err := r.db.Prepare(r.insertInto)
+	checkErr(err, "Failed to prepare stmt")
 
-	s, err2 := r.db.Prepare(r.insertInto)
-	checkErr(err2, "Failed to prepare stmt")
+	l := end - start
+	rnd := InitSampleSet(end - start, start)
 
-	for i := 1; i<=sz ; i++  {
-		s.Exec(i, r.valStr)
+	for i := 0; i < l; i++ {
+		s.Exec(rnd[i], r.valStr)
 	}
 
 	tm_e := time.Now()
@@ -100,8 +125,8 @@ func (r *Rdbms) SelectByPkRandom(start int, end int, t chan time.Duration) {
 		var k int
 		var v string
 		err2 := s.QueryRow(rnd[i]).Scan(&k, &v)
-		checkErr(err2, "Failed on stmt exec")
 		//fmt.Printf("k,v : %v , %v\n", k, v)
+		checkErr(err2, "Failed on stmt exec")
 	}
 	tm_e := time.Now()
 	t <- tm_e.Sub(tm_s)
@@ -121,6 +146,23 @@ func (r *Rdbms) UpdateByPkRandom(start int, end int, t chan time.Duration) {
 
 	for i := 0; i < l; i++ {
 		_, err2 := s.Exec(v, rnd[i])
+		checkErr(err2, "Failed on stmt exec")
+	}
+	tm_e := time.Now()
+	t <- tm_e.Sub(tm_s)
+}
+
+func (r *Rdbms) DeleteByPkRandom(start int, end int, t chan time.Duration) {
+
+	l := end - start
+	rnd := InitSampleSet(end - start, start)
+
+	tm_s := time.Now()
+	s, err := r.db.Prepare(r.deleteByPk)
+	checkErr(err, "Failed to query db")
+
+	for i := 0; i < l; i++ {
+		_, err2 := s.Exec(rnd[i])
 		checkErr(err2, "Failed on stmt exec")
 	}
 	tm_e := time.Now()
