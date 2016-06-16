@@ -45,8 +45,9 @@ func (m *Mysql) Init(host string, port int, user string, password string) {
 	 e.g: id:password@tcp(hostname.com:3306)/dbname
 	 */
 
-	_connStr := "%v:%v@tcp(%v:%v)/%v"
-	connStr := fmt.Sprintf(_connStr, user, password, host, port, "test")
+	_connStr := "%v:%v@tcp(%v:%v)/%v?readTimeout=%v&writeTimeout=%v"
+	connStr := fmt.Sprintf(_connStr, user, password, host, port, "test",
+		"2s", "2s")
 	db, err := sql.Open("mysql", connStr)
 	m.db = db
 	checkErr(err, "Failed to connect to mysql")
@@ -64,10 +65,11 @@ func (p *Postgresql) Init(host string, port int, user string, password string) {
 	p.deleteByPk = "DELETE FROM tab WHERE k = $1"
 	p.commitInterval = 100
 
-	_connStr := "user=%v password=%v dbname=%v host=%v port=%v sslmode=disable"
-	connStr := fmt.Sprintf(_connStr, user, password, "postgres", host, port)
+	_connStr := "user=%v password=%v dbname=%v host=%v port=%v sslmode=disable connect_timeout=%v "
+	connStr := fmt.Sprintf(_connStr, user, password, "postgres", host, port, "2")
 	db, err := sql.Open("postgres", connStr)
 	p.db = db
+
 	checkErr(err, "Failed to connect to pgsql")
 
 }

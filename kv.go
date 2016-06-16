@@ -20,6 +20,8 @@ func (m *Memcache) Init(host string, port int, user string, password string) {
 	_connStr := "%v:%v"
 	connStr := fmt.Sprintf(_connStr, host, port)
 	m.mc = memcache.New(connStr)
+	// We can get i/o timeouts with parallel executions without this
+	m.mc.Timeout = time.Second * 2
 	m.valStr = "1234567890ABCDEF"
 }
 
@@ -36,7 +38,7 @@ func (m *Memcache) InsertByPkRandom(start int, end int, t chan time.Duration) {
 	for i := start; i< end ; i++  {
 		k := strconv.Itoa(i)
 		err = m.mc.Add(&memcache.Item{Key: k, Value: []byte(m.valStr)})
-		checkErr(err, "Failed to add data to memcache")
+		checkErr(err, "Failed to add data to memcache: ", k)
 	}
 
 	tm_e := time.Now()
@@ -54,9 +56,9 @@ func (m *Memcache) SelectByPkRandom(start int, end int, t chan time.Duration) {
 		// float -> int -> string, yay
 		k = strconv.Itoa(int(rnd[i]))
 		_, err := m.mc.Get(k)
+		checkErr(err, "Failed on stmt exec for k/v: ", k)
 		//v := string(item.Value)
 		//assert(v == m.valStr, "Value string not same")
-		checkErr(err, "Failed on stmt exec")
 		//fmt.Printf("k,v : %v , %v\n", k, v)
 	}
 	tm_e := time.Now()
@@ -74,7 +76,7 @@ func (m *Memcache) UpdateByPkRandom(start int, end int, t chan time.Duration) {
 	for i := 0; i<l ; i++  {
 		k := strconv.Itoa(int(rnd[i]))
 		err := m.mc.Replace(&memcache.Item{Key: k, Value: []byte(m.valStr)})
-		checkErr(err, "Failed to update data to memcache")
+		checkErr(err, "Failed to update data to memcache:", k)
 	}
 
 	tm_e := time.Now()
@@ -92,7 +94,7 @@ func (m *Memcache) DeleteByPkRandom(start int, end int, t chan time.Duration) {
 	for i := 0; i<l ; i++  {
 		k := strconv.Itoa(int(rnd[i]))
 		err := m.mc.Delete(k)
-		checkErr(err, "Failed to delete data to memcache")
+		checkErr(err, "Failed to delete key from memcache", k)
 	}
 
 	tm_e := time.Now()

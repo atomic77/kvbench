@@ -85,9 +85,9 @@ func main() {
 	}
 }
 
-func checkErr(err error, msg string) {
+func checkErr(err error, msg string, v ...interface{}) {
 	if err != nil {
-		log.Fatalln(msg, err)
+		log.Panic(msg, err, v)
 	}
 }
 
